@@ -12,7 +12,7 @@
 
 ## 使用说明
 
-1. 访问网站：[https://[你的GitHub用户名].github.io/windsurf-project/](https://[你的GitHub用户名].github.io/windsurf-project/)
+1. 访问网站：[https://jacksonsuenok.github.io/windsurf-project/](https://jacksonsuenok.github.io/windsurf-project/)
 2. 点击上传区域或拖拽图片到上传区域
 3. 点击"分析"按钮开始分析
 4. 等待分析结果显示
