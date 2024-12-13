@@ -141,8 +141,12 @@ async function analyzeFood(base64Image) {
     try {
         // 检查是否有自定义API密钥
         const customApiKey = localStorage.getItem(STORAGE_KEYS.CUSTOM_API_KEY);
-        const apiKey = customApiKey || config.GOOGLE_API_KEY;
+        const apiKey = customApiKey || (config && config.GOOGLE_API_KEY);
         
+        if (!apiKey) {
+            throw new Error('未找到有效的API密钥，请在设置中配置');
+        }
+
         // 如果使用默认密钥且次数用完，显示提示
         if (!customApiKey && remainingUses <= 0) {
             throw new Error('免费使用次数已用完，请输入您的API密钥');
@@ -183,7 +187,7 @@ async function analyzeFood(base64Image) {
                 alert('API密钥无效，请重新输入');
                 document.getElementById('apiKeySection').style.display = 'block';
             }
-            throw new Error('图像识别失败');
+            throw new Error(`分析失败: ${visionResponse.status}`);
         }
 
         const visionData = await visionResponse.json();
