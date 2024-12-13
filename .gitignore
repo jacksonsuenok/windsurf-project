@@ -1,4 +1,16 @@
-.DS_Store
-node_modules/
-.env
+# API keys and configs
 config.js
+
+# IDE files
+.vscode/
+.idea/
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Dependencies
+node_modules/

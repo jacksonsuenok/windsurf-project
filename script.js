@@ -1,3 +1,35 @@
+const MAX_FREE_USES = 20;
+const STORAGE_KEYS = {
+    REMAINING_USES: 'remainingUses',
+    CUSTOM_API_KEY: 'customApiKey'
+};
+
+let remainingUses = parseInt(localStorage.getItem(STORAGE_KEYS.REMAINING_USES) || MAX_FREE_USES);
+updateRemainingUses();
+
+function updateRemainingUses() {
+    document.getElementById('remainingUses').textContent = remainingUses;
+    localStorage.setItem(STORAGE_KEYS.REMAINING_USES, remainingUses);
+    
+    // 如果次数用完，显示API密钥输入界面
+    if (remainingUses <= 0) {
+        document.getElementById('apiKeySection').style.display = 'block';
+        document.getElementById('dropZone').style.display = 'none';
+    }
+}
+
+document.getElementById('saveApiKey').addEventListener('click', () => {
+    const apiKey = document.getElementById('apiKeyInput').value.trim();
+    if (apiKey) {
+        localStorage.setItem(STORAGE_KEYS.CUSTOM_API_KEY, apiKey);
+        document.getElementById('apiKeySection').style.display = 'none';
+        document.getElementById('dropZone').style.display = 'block';
+        alert('API密钥已保存！');
+    } else {
+        alert('请输入有效的API密钥');
+    }
+});
+
 document.addEventListener('DOMContentLoaded', function() {
     const dropZone = document.getElementById('dropZone');
     const fileInput = document.getElementById('fileInput');
@@ -22,66 +54,73 @@ document.addEventListener('DOMContentLoaded', function() {
         e.preventDefault();
         dropZone.style.borderColor = '#3498db';
         const files = e.dataTransfer.files;
-        handleFiles(files);
+        handleFile(files[0]);
     });
 
     // 处理文件选择
-    fileInput.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            handleFile(file);
+        }
     });
 
     // 处理文件
-    function handleFiles(files) {
-        if (files.length === 0) return;
-        
-        const file = files[0];
+    function handleFile(file) {
         if (!file.type.match('image.*')) {
-            alert('请上传图片文件！');
-            return;
-        }
-
-        if (file.size > 5 * 1024 * 1024) {
-            alert('文件大小不能超过5MB！');
+            alert('请选择图片文件！');
             return;
         }
 
         const reader = new FileReader();
-        reader.onload = (e) => {
-            imagePreview.src = e.target.result;
-            previewSection.style.display = 'block';
-            resultSection.style.display = 'none';
+        reader.onload = async function(e) {
+            const base64Image = e.target.result;
+            document.getElementById('imagePreview').src = base64Image;
+            document.getElementById('previewSection').style.display = 'block';
+            
+            // 存储base64图片数据
+            currentImageData = base64Image;
         };
         reader.readAsDataURL(file);
     }
 
     // 分析按钮点击事件
-    analyzeBtn.addEventListener('click', async () => {
-        if (!imagePreview.src) {
-            alert('请先上传图片！');
+    document.getElementById('analyzeBtn').addEventListener('click', async function() {
+        if (!currentImageData) {
+            alert('请先选择一张图片！');
             return;
         }
 
-        loading.style.display = 'block';
-        analyzeBtn.disabled = true;
-
         try {
-            const results = await analyzeFood(imagePreview.src);
-            displayResults(results);
+            showLoading();
+            const result = await analyzeFood(currentImageData);
+            displayResult(result);
         } catch (error) {
-            alert('分析失败，请重试！');
             console.error('Error:', error);
+            alert(error.message || '分析失败，请重试');
         } finally {
-            loading.style.display = 'none';
-            analyzeBtn.disabled = false;
+            hideLoading();
         }
     });
 
     // 显示结果
-    function displayResults(results) {
-        document.getElementById('foodName').textContent = results.foodName;
-        document.getElementById('calories').textContent = results.calories;
-        document.getElementById('nutritionAdvice').textContent = results.advice;
+    function displayResult(result) {
+        document.getElementById('foodName').textContent = result.foodName;
+        document.getElementById('calories').textContent = result.calories;
+        document.getElementById('nutritionAdvice').textContent = result.advice;
         resultSection.style.display = 'block';
+    }
+
+    // 加载动画
+    function showLoading() {
+        loading.style.display = 'block';
+        analyzeBtn.disabled = true;
+    }
+
+    // 隐藏加载动画
+    function hideLoading() {
+        loading.style.display = 'none';
+        analyzeBtn.disabled = false;
     }
 });
 
@@ -98,14 +137,27 @@ async function getBase64FromUrl(url) {
 }
 
 // API调用函数
-async function analyzeFood(imageUrl) {
+async function analyzeFood(base64Image) {
     try {
-        const base64Image = await getBase64FromUrl(imageUrl);
-        console.log('图片已转换为base64格式');
+        // 检查是否有自定义API密钥
+        const customApiKey = localStorage.getItem(STORAGE_KEYS.CUSTOM_API_KEY);
+        const apiKey = customApiKey || config.GOOGLE_API_KEY;
         
-        // 使用Google Cloud Vision API进行图像识别
-        console.log('准备发送Vision API请求');
-        const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${config.GOOGLE_API_KEY}`, {
+        // 如果使用默认密钥且次数用完，显示提示
+        if (!customApiKey && remainingUses <= 0) {
+            throw new Error('免费使用次数已用完，请输入您的API密钥');
+        }
+
+        // 如果使用默认密钥，减少剩余次数
+        if (!customApiKey) {
+            remainingUses--;
+            updateRemainingUses();
+        }
+
+        // 移除base64编码的前缀
+        const imageContent = base64Image.replace(/^data:image\/(png|jpeg|jpg);base64,/, '');
+
+        const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -113,18 +165,12 @@ async function analyzeFood(imageUrl) {
             body: JSON.stringify({
                 requests: [{
                     image: {
-                        content: base64Image
+                        content: imageContent
                     },
-                    features: [
-                        {
-                            type: 'LABEL_DETECTION',
-                            maxResults: 5
-                        },
-                        {
-                            type: 'OBJECT_LOCALIZATION',
-                            maxResults: 5
-                        }
-                    ]
+                    features: [{
+                        type: 'LABEL_DETECTION',
+                        maxResults: 10
+                    }]
                 }]
             })
         });
@@ -132,6 +178,11 @@ async function analyzeFood(imageUrl) {
         if (!visionResponse.ok) {
             const errorData = await visionResponse.text();
             console.error('Vision API错误响应:', errorData);
+            if (customApiKey) {
+                localStorage.removeItem(STORAGE_KEYS.CUSTOM_API_KEY);
+                alert('API密钥无效，请重新输入');
+                document.getElementById('apiKeySection').style.display = 'block';
+            }
             throw new Error('图像识别失败');
         }
 
@@ -306,3 +357,5 @@ async function analyzeFood(imageUrl) {
         throw error;
     }
 }
+
+let currentImageData = null;

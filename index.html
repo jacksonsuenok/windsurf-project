@@ -15,6 +15,24 @@
         </header>
 
         <main>
+            <div class="usage-info">
+                剩余免费使用次数：<span id="remainingUses">20</span>次
+            </div>
+            
+            <div id="apiKeySection" style="display: none;">
+                <div class="api-key-input">
+                    <h3>免费次数已用完</h3>
+                    <p>请输入您的Google Vision API密钥继续使用：</p>
+                    <input type="text" id="apiKeyInput" placeholder="输入您的API密钥">
+                    <button id="saveApiKey">保存密钥</button>
+                    <p class="help-text">
+                        <a href="https://cloud.google.com/vision/docs/setup" target="_blank">
+                            如何获取API密钥？
+                        </a>
+                    </p>
+                </div>
+            </div>
+
             <div class="upload-section">
                 <div class="upload-area" id="dropZone">
                     <img id="uploadIcon" src="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/icons/cloud-upload.svg" alt="上传图标">
